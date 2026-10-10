@@ -1,15 +1,15 @@
 cask "brokkr" do
-  version "2.4.8"
+  version "2.4.10"
 
   on_arm do
-    sha256 "c47ea8936e01ab840779478d340494e69920b29850c0fd5a7d638196ee8b0528"
+    sha256 "e3717e2159f944f887db9a619f62a3e407668f8adc11982a1545f007b40f6dd7"
 
     url "https://github.com/Gabriel2392/brokkr-flash/releases/download/v#{version}/Brokkr-#{version}-macos-arm64.app.zip"
 
     depends_on macos: :ventura
   end
   on_intel do
-    sha256 "e751ab923345bac21c06614d040abc9fd02623a8149702070c2649f069273167"
+    sha256 "43e140074cd6e7effd7ed30470f71c7c286b9557016dd0d94c2cb5cdf07edc88"
 
     url "https://github.com/Gabriel2392/brokkr-flash/releases/download/v#{version}/Brokkr-#{version}-macos-x86_64.app.zip"
 
@@ -39,9 +39,5 @@ cask "brokkr" do
     attribute after installation. If macOS still refuses to open the app, run:
 
       sudo xattr -dr com.apple.quarantine #{appdir}/brokkr.app
-
-    Alternatively, reinstall with:
-
-      brew install --cask --no-quarantine #{token}
   EOS
 end
