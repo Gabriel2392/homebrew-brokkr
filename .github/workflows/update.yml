@@ -1,0 +1,28 @@
+name: Update cask
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to use (empty = latest stable release)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-cask
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Update cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: .github/scripts/update-cask --push ${TAG:+"$TAG"}

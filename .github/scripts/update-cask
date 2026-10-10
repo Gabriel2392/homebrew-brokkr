@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Points Casks/brokkr.rb at a Brokkr release.
+#
+#   update-cask [--push] [tag]
+#
+# Without a tag it uses the latest stable release. Pre-releases are skipped.
+# With --push it commits and pushes the change.
+set -euo pipefail
+
+repo="Gabriel2392/brokkr-flash"
+cask="$(cd "$(dirname "$0")/../.." && pwd)/Casks/brokkr.rb"
+
+push=false
+if [ "${1:-}" = "--push" ]; then
+  push=true
+  shift
+fi
+tag="${1:-}"
+
+auth=()
+if [ -n "${GH_TOKEN:-}" ]; then
+  auth=(-H "Authorization: Bearer ${GH_TOKEN}")
+fi
+
+api() {
+  curl -fsSL -H "Accept: application/vnd.github+json" "${auth[@]}" "https://api.github.com/repos/${repo}/$1"
+}
+
+if [ -n "$tag" ]; then
+  release="$(api "releases/tags/${tag}")"
+else
+  release="$(api releases/latest)"
+fi
+
+tag="$(jq -r .tag_name <<< "$release")"
+if [ "$(jq -r '.draft or .prerelease' <<< "$release")" = "true" ]; then
+  echo "${tag} is a pre-release, leaving the cask alone."
+  exit 0
+fi
+
+version="${tag#v}"
+if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: unexpected release tag '${tag}'" >&2
+  exit 1
+fi
+
+current="$(sed -nE 's/^  version "([^"]+)"$/\1/p' "$cask")"
+if [ "$current" = "$version" ]; then
+  echo "Cask is already at ${version}."
+  exit 0
+fi
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+# Hash the actual download, and cross-check it with GitHub's digest when there is one.
+sha_of() {
+  local name="$1" url digest sum
+  url="$(jq -r --arg n "$name" '.assets[] | select(.name == $n) | .browser_download_url' <<< "$release")"
+  if [ -z "$url" ]; then
+    echo "error: ${tag} has no asset named ${name}" >&2
+    return 1
+  fi
+  curl -fsSL -o "${tmp}/${name}" "$url"
+  sum="$(sha256sum "${tmp}/${name}" | cut -d' ' -f1)"
+  digest="$(jq -r --arg n "$name" '.assets[] | select(.name == $n) | .digest // empty' <<< "$release")"
+  if [ -n "$digest" ] && [ "$digest" != "sha256:${sum}" ]; then
+    echo "error: ${name} hashes to ${sum}, but GitHub reports ${digest}" >&2
+    return 1
+  fi
+  echo "$sum"
+}
+
+arm="$(sha_of "Brokkr-${version}-macos-arm64.app.zip")"
+intel="$(sha_of "Brokkr-${version}-macos-x86_64.app.zip")"
+
+awk -v version="$version" -v arm="$arm" -v intel="$intel" '
+  /^  version "/ { print "  version \"" version "\""; next }
+  /^  on_arm do$/ { block = "arm" }
+  /^  on_intel do$/ { block = "intel" }
+  /^  end$/ { block = "" }
+  /^    sha256 "/ && block == "arm" { print "    sha256 \"" arm "\""; next }
+  /^    sha256 "/ && block == "intel" { print "    sha256 \"" intel "\""; next }
+  { print }
+' "$cask" > "${tmp}/brokkr.rb"
+
+for want in "version \"${version}\"" "sha256 \"${arm}\"" "sha256 \"${intel}\""; do
+  if [ "$(grep -cF "$want" "${tmp}/brokkr.rb")" != "1" ]; then
+    echo "error: could not update ${want} in the cask" >&2
+    exit 1
+  fi
+done
+
+cp "${tmp}/brokkr.rb" "$cask"
+echo "Updated cask from ${current} to ${version}."
+
+if [ "$push" = true ]; then
+  cd "$(dirname "$cask")"
+  git add brokkr.rb
+  git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" \
+    commit -m "Update brokkr to ${version}"
+  git push
+fi
