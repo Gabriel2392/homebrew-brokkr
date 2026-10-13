@@ -1,15 +1,15 @@
 cask "brokkr" do
-  version "2.4.10"
+  version "2.4.11"
 
   on_arm do
-    sha256 "e3717e2159f944f887db9a619f62a3e407668f8adc11982a1545f007b40f6dd7"
+    sha256 "f6249f9a372bef65982ad27a8805dfd133edd25f3cceae5b7e051f0d5f733a70"
 
     url "https://github.com/Gabriel2392/brokkr-flash/releases/download/v#{version}/Brokkr-#{version}-macos-arm64.app.zip"
 
     depends_on macos: :ventura
   end
   on_intel do
-    sha256 "43e140074cd6e7effd7ed30470f71c7c286b9557016dd0d94c2cb5cdf07edc88"
+    sha256 "4b5e1063bba0dbacfab2e2970e86f6cc8edb281e60fa900c48f0ed946395244c"
 
     url "https://github.com/Gabriel2392/brokkr-flash/releases/download/v#{version}/Brokkr-#{version}-macos-x86_64.app.zip"
 
